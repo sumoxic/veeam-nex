@@ -1,0 +1,17 @@
+# Veeam 巡检平台 —— 后端运行时依赖
+# 版本已锁定，避免升级引入破坏性变更
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.6
+alembic==1.20.1
+pymysql==1.2.0
+pydantic==2.14.1
+pydantic-settings==2.13.0
+apscheduler==3.11.3
+pyjwt==2.15.1
+bcrypt==4.3.0
+cryptography==46.0.3
+loguru==0.7.3
+filelock==3.20.0
+python-multipart==0.0.20
+email-validator==2.3.0

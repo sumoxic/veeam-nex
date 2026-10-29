@@ -1,0 +1,43 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- 凭据 / 环境 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- 运行产物 ----
+logs/
+*.log
+uploads/
+*.db
+*.sqlite3
+
+# ---- Node / 前端 ----
+node_modules/
+dist/
+.vite/
+*.local
+
+# ---- 编辑器 / 系统 ----
+.DS_Store
+Thumbs.db
+
+# ---- 本地工具配置 ----
+.claude/
+.omc/
+
+# ---- 早期原型脚本（后端已有 backend/app/vbr/ 实现） ----
+/inspection.py
+/vbr_client.py
