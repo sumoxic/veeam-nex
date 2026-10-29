@@ -43,6 +43,12 @@ export interface Target {
   port: number
   username: string
   verify_tls: boolean
+  /** auto / 12 / 13 */
+  version_preference: string
+  /** 实际使用的 REST API 版本，例如 1.2-rev1 */
+  api_version?: string | null
+  /** 探测到的 VBR 构建号，例如 12.3.2.3617 */
+  detected_version?: string | null
   description?: string | null
   is_enabled: boolean
   schedule_cron?: string | null
@@ -67,6 +73,10 @@ export interface ConnectionTestResult {
   server: Record<string, unknown>
   server_time?: string | null
   iana_tz?: string | null
+  /** VBR 构建号 */
+  version?: string | null
+  /** REST API 版本 */
+  api_version?: string | null
   error?: string | null
 }
 
@@ -323,6 +333,7 @@ export interface DashboardRunOption {
   started_at: string
   finished_at?: string | null
   duration_ms?: number | null
+  vbr_build?: string | null
   findings_total: number
   findings_critical: number
   findings_warn: number

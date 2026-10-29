@@ -175,6 +175,10 @@ def run_inspection(
     try:
         client = target_service.build_client(target)
         result = collector.collect(client)
+        # 记录本次实际使用的 API 版本与 VBR 构建号，供界面版本标识
+        target.api_version = client.api_version
+        if result.server_build:
+            target.detected_version = result.server_build
     except Exception as exc:  # noqa: BLE001 —— 采集失败要把轮次标记为失败
         run.status = RunStatus.FAILED
         run.finished_at = to_utc_naive(utcnow())

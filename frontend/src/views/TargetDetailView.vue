@@ -13,6 +13,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import JsonViewer from '@/components/JsonViewer.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import VersionTag from '@/components/VersionTag.vue'
 import {
   clearTargetRule,
   getCapabilities,
@@ -38,6 +39,7 @@ import type {
 import { useUserStore } from '@/stores/user'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { preferenceLabel } from '@/utils/version'
 
 type LevelOption = Severity | 'inherit'
 
@@ -426,6 +428,11 @@ onMounted(async () => {
       <h2 class="vi-page-title">
         {{ target ? target.name : '目标详情' }}
         <span v-if="target" class="vi-muted vi-mono">{{ target.host }}:{{ target.port }}</span>
+        <VersionTag
+          v-if="target"
+          :build="target.detected_version"
+          :preference="target.version_preference"
+        />
       </h2>
       <div class="vi-toolbar">
         <el-button @click="router.push('/targets')">返回列表</el-button>
@@ -452,6 +459,21 @@ onMounted(async () => {
             </el-descriptions-item>
             <el-descriptions-item label="已存口令">
               {{ target?.has_password ? '是' : '否' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="VBR 版本">
+              <VersionTag
+                :build="target?.detected_version"
+                :preference="target?.version_preference"
+              />
+              <span v-if="target?.detected_version" class="vi-mono vi-version-build">
+                {{ target.detected_version }}
+              </span>
+              <span class="vi-muted vi-version-build">
+                偏好：{{ preferenceLabel(target?.version_preference) }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="REST API 版本">
+              <span class="vi-mono">{{ target?.api_version || '-' }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="创建时间">
               {{ formatDateTime(target?.created_at) }}
@@ -748,6 +770,13 @@ onMounted(async () => {
               {{ testResult.ok ? '连通成功' : '连通失败' }}
             </el-tag>
           </el-descriptions-item>
+          <el-descriptions-item label="VBR 版本">
+            <VersionTag :build="testResult.version" size="default" />
+            <span class="vi-mono vi-version-build">{{ testResult.version || '-' }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="REST API 版本">
+            <span class="vi-mono">{{ testResult.api_version || '-' }}</span>
+          </el-descriptions-item>
           <el-descriptions-item label="服务器时间">
             {{ formatDateTime(testResult.server_time) }}
           </el-descriptions-item>
@@ -823,6 +852,10 @@ onMounted(async () => {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+
+.vi-version-build {
+  margin-left: 8px;
 }
 
 .vi-error-text {

@@ -18,6 +18,7 @@ import type {
 import DonutChart from '@/components/charts/DonutChart.vue'
 import LineChart from '@/components/charts/LineChart.vue'
 import { formatBytes, formatDateTime, formatDuration, formatPercent } from '@/utils/format'
+import { versionLabel } from '@/utils/version'
 
 const router = useRouter()
 
@@ -63,7 +64,7 @@ function triggerText(value?: string | null): string {
 }
 
 function runOptionLabel(run: DashboardRunOption): string {
-  return `${formatDateTime(run.started_at)} · ${run.target_name} · ${runStatusText(run.status)}`
+  return `${formatDateTime(run.started_at)} · ${run.target_name} · ${versionLabel(run.vbr_build)} · ${runStatusText(run.status)}`
 }
 
 function resultText(value?: string | null): string {
@@ -321,7 +322,10 @@ function openFindings() {
           >
             <div class="run-option">
               <span class="run-option-time">{{ formatDateTime(item.started_at) }}</span>
-              <span class="run-option-meta">{{ item.target_name }} · {{ runStatusText(item.status) }}</span>
+              <span class="run-option-meta">
+                {{ item.target_name }} · {{ versionLabel(item.vbr_build) }} ·
+                {{ runStatusText(item.status) }}
+              </span>
             </div>
           </el-option>
         </el-select>
@@ -339,7 +343,10 @@ function openFindings() {
       </span>
       <span class="vi-chip">{{ triggerText(run.trigger_type) }}巡检</span>
       <span class="vi-chip">耗时 {{ formatDuration(run.duration_ms) }}</span>
-      <span class="vi-chip">VBR {{ run.vbr_build || '-' }}</span>
+      <span class="vi-chip">
+        {{ versionLabel(run.vbr_build) }}
+        <template v-if="run.vbr_build"> · {{ run.vbr_build }}</template>
+      </span>
       <span class="vi-chip">时钟基准 · {{ run.clock_source === 'vbr' ? 'VBR 服务器' : '平台' }}</span>
       <span v-if="run.error_count > 0" class="vi-chip tone-warn">
         采集异常 {{ run.error_count }} 项

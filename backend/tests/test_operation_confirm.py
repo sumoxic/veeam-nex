@@ -15,10 +15,14 @@ from app.utils.timeutil import utcnow
 
 
 class FakeClient:
-    def __init__(self, response=None, error=None):
+    def __init__(self, response=None, error=None, api_version="1.3-rev2"):
         self.response = response
         self.error = error
+        self.api_version = api_version
         self.calls = []
+
+    def ensure_version(self):
+        return self.api_version
 
     def post(self, path, body=None):
         self.calls.append((path, body))
@@ -151,3 +155,16 @@ def test_token_depends_on_params(db, monkeypatch):
     a = create_operation(db, target.id, "proxy.disable", {"proxy_id": "p1"})
     b = create_operation(db, target.id, "proxy.disable", {"proxy_id": "p2"})
     assert a.confirmation_token != b.confirmation_token
+
+
+def test_vbr12_rejects_unsupported_operation(db, monkeypatch):
+    target = _target(db)
+    client = FakeClient(api_version="1.2-rev1")
+    _patch_client(monkeypatch, target, client)
+    row = create_operation(db, target.id, "proxy.disable", {"proxy_id": "p1"})
+
+    with pytest.raises(ConflictError):
+        confirm_operation(db, row, row.confirmation_token)
+
+    assert client.calls == []
+    assert row.status == OperationStatus.FAILED

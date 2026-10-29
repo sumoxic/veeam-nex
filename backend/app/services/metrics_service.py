@@ -460,6 +460,7 @@ def recent_runs(db: Session, limit: int = 40) -> list[dict]:
             "started_at": run.started_at,
             "finished_at": run.finished_at,
             "duration_ms": run.duration_ms,
+            "vbr_build": run.vbr_build,
             "findings_total": run.findings_total,
             "findings_critical": run.findings_critical,
             "findings_warn": run.findings_warn,

@@ -18,6 +18,7 @@ import SeverityTag from '@/components/SeverityTag.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { formatDateTime } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { versionLabel } from '@/utils/version'
 import { useUserStore } from '@/stores/user'
 
 const store = useUserStore()
@@ -39,6 +40,20 @@ const STATUS_OPTIONS = [
 ]
 
 const targets = ref<Target[]>([])
+
+function targetVersionLabel(target: Target): string {
+  return versionLabel(target.detected_version, target.version_preference)
+}
+
+function targetOptionLabel(target: Target): string {
+  return `${target.name} · ${targetVersionLabel(target)}`
+}
+
+function targetLabel(id: number): string {
+  const hit = targets.value.find((t) => t.id === id)
+  return hit ? `${hit.name} · ${targetVersionLabel(hit)}` : `#${id}`
+}
+
 const rows = ref<Finding[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -269,7 +284,7 @@ onMounted(async () => {
           style="width: 190px"
         >
           <el-option label="全部目标" value="" />
-          <el-option v-for="t in targets" :key="t.id" :label="t.name" :value="t.id" />
+          <el-option v-for="t in targets" :key="t.id" :label="targetOptionLabel(t)" :value="t.id" />
         </el-select>
         <el-select v-model="filters.level" placeholder="全部级别" style="width: 130px">
           <el-option
@@ -393,7 +408,7 @@ onMounted(async () => {
             <span class="vi-mono">#{{ current.id }}</span>
           </el-descriptions-item>
           <el-descriptions-item label="目标">
-            <span class="vi-mono">#{{ current.target_id }}</span>
+            {{ targetLabel(current.target_id) }}
           </el-descriptions-item>
           <el-descriptions-item label="级别">
             <SeverityTag :level="current.level" />

@@ -11,8 +11,10 @@ import { ElMessage } from 'element-plus'
 import { listInspections, listTargets, triggerInspection } from '@/api'
 import type { InspectionRun, Target } from '@/api/types'
 import StatusTag from '@/components/StatusTag.vue'
+import VersionTag from '@/components/VersionTag.vue'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { versionLabel } from '@/utils/version'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -58,6 +60,10 @@ function errorText(err: unknown, fallback: string): string {
 function triggerTypeText(value?: string | null): string {
   if (!value) return '-'
   return TRIGGER_LABELS[value] ?? value
+}
+
+function targetOptionLabel(target: Target): string {
+  return `${target.name} · ${versionLabel(target.detected_version, target.version_preference)}`
 }
 
 async function loadTargets() {
@@ -156,7 +162,7 @@ onMounted(async () => {
           @change="onSearch"
         >
           <el-option label="全部目标" value="" />
-          <el-option v-for="t in targets" :key="t.id" :label="t.name" :value="t.id" />
+          <el-option v-for="t in targets" :key="t.id" :label="targetOptionLabel(t)" :value="t.id" />
         </el-select>
         <el-select
           v-model="filters.status"
@@ -188,6 +194,11 @@ onMounted(async () => {
         <el-table-column prop="target_id" label="目标" width="90" align="center">
           <template #default="{ row }">
             <span class="vi-mono">#{{ row.target_id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="版本" width="100" align="center">
+          <template #default="{ row }">
+            <VersionTag :build="row.vbr_build" />
           </template>
         </el-table-column>
         <el-table-column label="触发方式" width="100" align="center">
@@ -258,7 +269,7 @@ onMounted(async () => {
             placeholder="请选择目标"
             style="width: 100%"
           >
-            <el-option v-for="t in targets" :key="t.id" :label="t.name" :value="t.id" />
+            <el-option v-for="t in targets" :key="t.id" :label="targetOptionLabel(t)" :value="t.id" />
           </el-select>
         </el-form-item>
       </el-form>

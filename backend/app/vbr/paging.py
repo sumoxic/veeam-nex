@@ -50,7 +50,8 @@ def iter_items(
     """遍历指定列表端点的全部条目。"""
 
     def fetch(offset: int, limit: int) -> Any:
-        return client.get(path, limit=limit, offset=offset)
+        # VBR 的分页参数是 skip（不是 offset）
+        return client.get(path, limit=limit, skip=offset)
 
     try:
         return list(iter_all(fetch, page_size=page_size, max_pages=max_pages))

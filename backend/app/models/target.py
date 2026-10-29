@@ -35,6 +35,14 @@ class Target(Base, TimestampMixin):
     password_enc: Mapped[str] = mapped_column(String(512), nullable=False)
     #: VBR 默认使用自签名证书，默认不校验
     verify_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: 用户选择的 VBR 大版本：auto / 12 / 13
+    version_preference: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="auto"
+    )
+    #: 自动探测后缓存的 REST API 版本，例如 1.2-rev1
+    api_version: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    #: 最近一次探测到的 VBR 构建号，例如 12.3.2.3617
+    detected_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

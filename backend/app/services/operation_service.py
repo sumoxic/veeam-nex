@@ -139,6 +139,16 @@ def confirm_operation(
 
         target = target_service.get_target(db, row.target_id)
         client = target_service.build_client(target)
+        client.ensure_version()
+        # VBR 12 没有作业重试与代理启停端点，提前给出明确失败而不是 404
+        if not client.api_version.startswith("1.3") and row.operation_kind in (
+            "job.retry",
+            "proxy.enable",
+            "proxy.disable",
+        ):
+            raise VbrError(
+                f"VBR {target.detected_version or '12'} 不支持操作 {row.operation_kind}"
+            )
         entity_id = row.params_json.get(spec.id_param)
         path = spec.path_builder(entity_id)
         body = spec.body_builder(row.params_json) if spec.body_builder else None

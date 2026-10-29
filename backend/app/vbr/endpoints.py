@@ -61,3 +61,35 @@ INSPECTION_ENDPOINTS: dict[str, str] = {
     "/api/v1/authorization/events": "审计与授权事件",
     "/api/v1/license/capacity": "许可容量报告",
 }
+
+#: VBR 13 才有的代理状态端点；VBR 12 只能读代理配置列表
+PROXY_STATES_PATH = "/api/v1/backupInfrastructure/proxies/states"
+PROXY_CONFIG_PATH = "/api/v1/backupInfrastructure/proxies"
+
+
+def _is_v13(api_version: str) -> bool:
+    return api_version.startswith("1.3")
+
+
+def collect_endpoints(api_version: str) -> tuple[CollectEndpoint, ...]:
+    """按 REST API 版本返回采集端点清单。"""
+    proxy_path = PROXY_STATES_PATH if _is_v13(api_version) else PROXY_CONFIG_PATH
+    return tuple(
+        endpoint._replace(path=proxy_path) if endpoint.key == "proxies" else endpoint
+        for endpoint in COLLECT_ENDPOINTS
+    )
+
+
+def inspection_endpoints(api_version: str) -> dict[str, str]:
+    """按 REST API 版本返回能力探测端点及说明。"""
+    if _is_v13(api_version):
+        return dict(INSPECTION_ENDPOINTS)
+    result: dict[str, str] = {}
+    for path, desc in INSPECTION_ENDPOINTS.items():
+        if path == PROXY_STATES_PATH:
+            result[PROXY_CONFIG_PATH] = (
+                "代理配置（VBR 12 无 states 端点，在线状态由受管服务器推断）"
+            )
+        else:
+            result[path] = desc
+    return result

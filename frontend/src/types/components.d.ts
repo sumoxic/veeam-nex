@@ -55,6 +55,7 @@ declare module 'vue' {
     SeverityTag: typeof import('./../components/SeverityTag.vue')['default']
     StatusTag: typeof import('./../components/StatusTag.vue')['default']
     TargetPicker: typeof import('./../components/TargetPicker.vue')['default']
+    VersionTag: typeof import('./../components/VersionTag.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

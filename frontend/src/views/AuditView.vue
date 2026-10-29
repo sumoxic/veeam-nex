@@ -12,6 +12,7 @@ import type { OperationAudit, OperationStatus, Target } from '@/api/types'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { versionLabel } from '@/utils/version'
 import JsonViewer from '@/components/JsonViewer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 
@@ -53,9 +54,17 @@ const range = ref<[string, string] | null>(null)
 const page = ref(1)
 const size = ref(20)
 
+function targetOptionLabel(target: Target): string {
+  return `${target.name}（${target.host} · ${versionLabel(
+    target.detected_version,
+    target.version_preference,
+  )}）`
+}
+
 function targetName(id: number): string {
   const hit = targets.value.find((t) => t.id === id)
-  return hit ? `${hit.name}（${hit.host}）` : `#${id}`
+  if (!hit) return `#${id}`
+  return `${hit.name}（${hit.host} · ${versionLabel(hit.detected_version, hit.version_preference)}）`
 }
 
 /** 后端返回的是无时区 UTC 字符串 */
@@ -210,7 +219,7 @@ function resultSummary(row: OperationAudit): string {
           <el-option
             v-for="item in targets"
             :key="item.id"
-            :label="`${item.name}（${item.host}）`"
+            :label="targetOptionLabel(item)"
             :value="item.id"
           />
         </el-select>

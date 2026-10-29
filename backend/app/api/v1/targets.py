@@ -48,6 +48,7 @@ def create_target(payload: TargetIn, db: DbSession,
         username=payload.username,
         password=payload.password,
         verify_tls=payload.verify_tls,
+        version_preference=payload.version_preference,
         description=payload.description,
         is_enabled=payload.is_enabled,
         schedule_cron=payload.schedule_cron,
@@ -87,7 +88,7 @@ def test_connection(target_id: int, db: DbSession,
                     user: OperatorUser) -> dict:
     """测试与 VBR 的连通性：登录 + 读服务器信息 + 读服务器时钟。"""
     target = target_service.get_target(db, target_id)
-    result = target_service.test_connection(target)
+    result = target_service.test_connection(db, target)
     return ok(ConnectionTestOut(**result).model_dump())
 
 

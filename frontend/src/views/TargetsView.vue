@@ -11,6 +11,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import DataTablePage from '@/components/DataTablePage.vue'
 import JsonViewer from '@/components/JsonViewer.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import VersionTag from '@/components/VersionTag.vue'
 import {
   createTarget,
   deleteTarget,
@@ -25,6 +26,7 @@ import type { ConnectionTestResult, Target } from '@/api/types'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { VERSION_PREFERENCE_OPTIONS, type VersionPreference } from '@/utils/version'
 
 type EnabledFilter = 'all' | 'enabled' | 'disabled'
 
@@ -35,6 +37,7 @@ type TargetForm = {
   username: string
   password: string
   verify_tls: boolean
+  version_preference: VersionPreference
   description: string
   is_enabled: boolean
   schedule_cron: string
@@ -180,6 +183,7 @@ function emptyForm(): TargetForm {
     username: '',
     password: '',
     verify_tls: false,
+    version_preference: 'auto',
     description: '',
     is_enabled: true,
     schedule_cron: '',
@@ -224,6 +228,10 @@ function openEdit(row: Target) {
     username: row.username,
     password: '',
     verify_tls: row.verify_tls,
+    version_preference:
+      row.version_preference === '12' || row.version_preference === '13'
+        ? row.version_preference
+        : 'auto',
     description: row.description ?? '',
     is_enabled: row.is_enabled,
     schedule_cron: row.schedule_cron ?? '',
@@ -249,6 +257,7 @@ async function save() {
       username: form.value.username.trim(),
       password: form.value.password,
       verify_tls: form.value.verify_tls,
+      version_preference: form.value.version_preference,
       description: form.value.description.trim() || null,
       is_enabled: form.value.is_enabled,
       schedule_cron: form.value.schedule_cron.trim() || null,
@@ -267,6 +276,7 @@ async function save() {
         port: payload.port,
         username: payload.username,
         verify_tls: payload.verify_tls,
+        version_preference: payload.version_preference,
         // 后端忽略 null，置空描述统一传空串
         description: payload.description ?? '',
         is_enabled: payload.is_enabled,
@@ -334,6 +344,14 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column label="账号" prop="username" min-width="140" show-overflow-tooltip />
+      <el-table-column label="版本" width="110">
+        <template #default="{ row }">
+          <VersionTag
+            :build="row.detected_version"
+            :preference="row.version_preference"
+          />
+        </template>
+      </el-table-column>
       <el-table-column label="启用" width="100">
         <template #default="{ row }">
           <div @click.stop>
@@ -427,6 +445,17 @@ onMounted(load)
           :placeholder="dialogMode === 'create' ? '请输入登录口令' : '留空表示沿用原口令'"
         />
       </el-form-item>
+      <el-form-item label="VBR 版本">
+        <el-select v-model="form.version_preference" style="width: 200px">
+          <el-option
+            v-for="opt in VERSION_PREFERENCE_OPTIONS"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+        <span class="vi-muted vi-form-hint">自动检测会依次尝试 VBR 13 / 12 的 REST API 版本</span>
+      </el-form-item>
       <el-form-item label="校验 TLS">
         <el-switch v-model="form.verify_tls" />
       </el-form-item>
@@ -467,6 +496,13 @@ onMounted(load)
             {{ testResult.ok ? '连通成功' : '连通失败' }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="VBR 版本">
+          <VersionTag :build="testResult.version" size="default" />
+          <span class="vi-mono vi-version-build">{{ testResult.version || '-' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="REST API 版本">
+          <span class="vi-mono">{{ testResult.api_version || '-' }}</span>
+        </el-descriptions-item>
         <el-descriptions-item label="服务器时间">
           {{ formatDateTime(testResult.server_time) }}
         </el-descriptions-item>
@@ -493,6 +529,15 @@ onMounted(load)
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.vi-form-hint {
+  margin-left: 10px;
+  font-size: 12px;
+}
+
+.vi-version-build {
+  margin-left: 8px;
 }
 
 .vi-section-title {

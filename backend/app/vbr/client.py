@@ -19,7 +19,11 @@ from app.vbr.exceptions import (
 )
 
 DEFAULT_PORT = 9419
-API_VERSION = "1.3-rev2"
+DEFAULT_API_VERSION = "1.3-rev2"
+#: VBR 大版本 → REST API 版本
+API_VERSION_BY_MAJOR = {"12": "1.2-rev1", "13": "1.3-rev2"}
+#: 自动探测时按新到旧尝试
+AUTO_API_VERSIONS = ("1.3-rev2", "1.2-rev1")
 #: 令牌到期前多少秒就主动刷新
 TOKEN_REFRESH_MARGIN = 60
 
@@ -38,6 +42,7 @@ class VbrClient:
         port: int = DEFAULT_PORT,
         verify_tls: bool = False,
         timeout: int = 60,
+        api_version: str | None = None,
     ):
         self.host = host
         self.port = port
@@ -45,6 +50,11 @@ class VbrClient:
         self.password = password
         self.timeout = timeout
         self.base_url = f"https://{host}:{port}"
+        #: None 表示自动探测；str 表示用户指定或此前缓存的结果
+        self.api_version = api_version or DEFAULT_API_VERSION
+        self._auto_version = api_version is None
+        self._version_resolved = api_version is not None
+        self._detecting = False
         self._token: str | None = None
         #: 令牌失效的 monotonic 时刻；用 monotonic 而非 wall clock，避免系统时间调整导致误判
         self._token_deadline: float = 0.0
@@ -68,11 +78,16 @@ class VbrClient:
             self.base_url + "/api/oauth2/token", data=body, method="POST"
         )
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        # VBR 12 的令牌端点同样校验 x-api-version，缺省会返回 411/400
+        req.add_header("x-api-version", self.api_version)
         try:
             with urllib.request.urlopen(req, context=self._ctx, timeout=self.timeout) as resp:
                 payload = json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode()[:300]
+            # 版本不被支持不是凭据错误，交由 ensure_version 换版本重试
+            if "unsupported restapi version" in detail.lower():
+                raise VbrError(f"REST API 版本 {self.api_version} 不受支持: {detail}") from exc
             raise AuthError(f"登录失败 ({exc.code}): {detail}") from exc
         except OSError as exc:
             raise VbrError(f"无法连接 {self.base_url}: {exc}") from exc
@@ -84,8 +99,42 @@ class VbrClient:
         self._token_deadline = time.monotonic() + float(ttl)
         return payload
 
+    def ensure_version(self) -> str:
+        """确定可用的 REST API 版本。
+
+        用户指定版本时直接采用；auto 模式按 1.3 → 1.2 顺序探测，
+        结果缓存在实例上，同一次巡检不会重复探测。
+        """
+        if self._version_resolved:
+            return self.api_version
+
+        last_error: Exception | None = None
+        self._detecting = True
+        try:
+            for version in AUTO_API_VERSIONS:
+                self.api_version = version
+                self._token = None
+                self._token_deadline = 0.0
+                try:
+                    self.login()
+                    info = self._request("GET", "/api/v1/serverInfo", _retry_auth=False)
+                except AuthError:
+                    # 凭据错误与版本无关，直接上抛
+                    raise
+                except VbrError as exc:
+                    last_error = exc
+                    continue
+                if isinstance(info, dict) and info.get("buildVersion"):
+                    self._version_resolved = True
+                    return version
+        finally:
+            self._detecting = False
+        raise last_error or VbrError("无法确定 VBR 的 REST API 版本")
+
     def _ensure_token(self) -> str:
         """确保有可用令牌，必要时重新登录。"""
+        if self._auto_version and not self._version_resolved and not self._detecting:
+            self.ensure_version()
         if self._token is None or self._token_deadline - time.monotonic() <= TOKEN_REFRESH_MARGIN:
             self.login()
         return self._token  # type: ignore[return-value]
@@ -105,7 +154,7 @@ class VbrClient:
         data = json.dumps(body).encode() if body is not None else None
         headers = {
             "Authorization": "Bearer " + self._ensure_token(),
-            "x-api-version": API_VERSION,
+            "x-api-version": self.api_version,
         }
         if data:
             headers["Content-Type"] = "application/json"
@@ -151,10 +200,11 @@ class VbrClient:
 
         结果用于「能力缺口」展示：Community 许可下被封锁的端点必须显式呈现。
         """
-        from app.vbr.endpoints import INSPECTION_ENDPOINTS
+        from app.vbr.endpoints import inspection_endpoints
 
+        self.ensure_version()
         results: dict[str, str] = {}
-        for path in INSPECTION_ENDPOINTS:
+        for path in inspection_endpoints(self.api_version):
             try:
                 self.get(path)
                 results[path] = "ok"

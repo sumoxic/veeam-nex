@@ -17,6 +17,8 @@ class TargetIn(BaseModel):
     username: str = Field(..., min_length=1, max_length=255)
     password: str = Field(..., min_length=1, max_length=256)
     verify_tls: bool = False
+    #: VBR 大版本：auto 自动探测，12 / 13 强制指定 REST API 版本
+    version_preference: str = Field("auto", pattern="^(auto|12|13)$")
     description: Optional[str] = Field(None, max_length=512)
     is_enabled: bool = True
     schedule_cron: Optional[str] = Field(None, max_length=64)
@@ -33,6 +35,7 @@ class TargetUpdateIn(BaseModel):
     username: Optional[str] = Field(None, min_length=1, max_length=255)
     password: Optional[str] = Field(None, min_length=1, max_length=256)
     verify_tls: Optional[bool] = None
+    version_preference: Optional[str] = Field(None, pattern="^(auto|12|13)$")
     description: Optional[str] = Field(None, max_length=512)
     is_enabled: Optional[bool] = None
 
@@ -72,6 +75,9 @@ class TargetOut(BaseModel):
     port: int
     username: str
     verify_tls: bool
+    version_preference: str = "auto"
+    api_version: Optional[str] = None
+    detected_version: Optional[str] = None
     description: Optional[str] = None
     is_enabled: bool
     has_password: bool = False
@@ -92,4 +98,8 @@ class ConnectionTestOut(BaseModel):
     server: Optional[dict[str, Any]] = None
     server_time: Optional[str] = None
     iana_tz: Optional[str] = None
+    #: VBR 构建号，例如 12.3.2.3617
+    version: Optional[str] = None
+    #: 实际使用的 REST API 版本，例如 1.2-rev1
+    api_version: Optional[str] = None
     error: Optional[str] = None

@@ -76,6 +76,8 @@ export interface TargetIn {
   username: string
   password: string
   verify_tls?: boolean
+  /** auto / 12 / 13 */
+  version_preference?: string
   description?: string | null
   is_enabled?: boolean
   schedule_cron?: string | null

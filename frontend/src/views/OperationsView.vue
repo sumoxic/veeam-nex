@@ -21,6 +21,7 @@ import type { OperationAudit, OperationKind, OperationStatus, Target } from '@/a
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/format'
 import { asRow } from '@/utils/table'
+import { versionLabel } from '@/utils/version'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import JsonViewer from '@/components/JsonViewer.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -60,9 +61,17 @@ const filters = reactive<{
 const page = ref(1)
 const size = ref(20)
 
+function targetOptionLabel(target: Target): string {
+  return `${target.name}（${target.host} · ${versionLabel(
+    target.detected_version,
+    target.version_preference,
+  )}）`
+}
+
 function targetName(id: number): string {
   const hit = targets.value.find((t) => t.id === id)
-  return hit ? `${hit.name}（${hit.host}）` : `#${id}`
+  if (!hit) return `#${id}`
+  return `${hit.name}（${hit.host} · ${versionLabel(hit.detected_version, hit.version_preference)}）`
 }
 
 async function loadTargets() {
@@ -365,7 +374,7 @@ function openDetail(row: OperationAudit) {
           <el-option
             v-for="item in targets"
             :key="item.id"
-            :label="`${item.name}（${item.host}）`"
+            :label="targetOptionLabel(item)"
             :value="item.id"
           />
         </el-select>
@@ -466,7 +475,7 @@ function openDetail(row: OperationAudit) {
             <el-option
               v-for="item in targets"
               :key="item.id"
-              :label="`${item.name}（${item.host}）`"
+              :label="targetOptionLabel(item)"
               :value="item.id"
             />
           </el-select>

@@ -10,7 +10,7 @@ from app.models.target import Target
 from app.security.crypto import decrypt, encrypt
 from app.utils.errors import ConflictError, NotFoundError
 from app.utils.timeutil import to_utc_naive, utcnow
-from app.vbr.client import VbrClient
+from app.vbr.client import API_VERSION_BY_MAJOR, VbrClient
 from app.vbr.exceptions import AuthError, VbrError
 
 #: 能力探测结果的缓存时长
@@ -59,6 +59,11 @@ def update_target(db: Session, target: Target, **fields) -> Target:
     password = fields.pop("password", None)
     if password:
         target.password_enc = encrypt(password)
+    # 版本偏好变化后必须丢弃旧的探测结果，否则会继续用错误的 API 版本
+    new_preference = fields.get("version_preference")
+    if new_preference is not None and new_preference != target.version_preference:
+        target.api_version = None
+        target.detected_version = None
     for key, value in fields.items():
         if value is not None:
             setattr(target, key, value)
@@ -73,6 +78,14 @@ def delete_target(db: Session, target: Target) -> None:
     db.commit()
 
 
+def _resolve_api_version(target: Target) -> Optional[str]:
+    """把用户的版本偏好解析成 REST API 版本；auto 且无缓存时返回 None 触发探测。"""
+    preference = target.version_preference or "auto"
+    if preference in API_VERSION_BY_MAJOR:
+        return API_VERSION_BY_MAJOR[preference]
+    return target.api_version or None
+
+
 def build_client(target: Target) -> VbrClient:
     """用目标配置构造 VBR 客户端（口令在此解密）。"""
     return VbrClient(
@@ -81,32 +94,43 @@ def build_client(target: Target) -> VbrClient:
         username=target.username,
         password=decrypt(target.password_enc),
         verify_tls=target.verify_tls,
+        api_version=_resolve_api_version(target),
     )
 
 
-def test_connection(target: Target) -> dict:
-    """测试与 VBR 的连通性，返回服务器信息与时钟。"""
+def test_connection(db: Session, target: Target) -> dict:
+    """测试与 VBR 的连通性，返回服务器信息、时钟与解析出的 API 版本。"""
     try:
         client = build_client(target)
+        client.ensure_version()
         server = client.get("/api/v1/serverInfo")
         server_time = client.get("/api/v1/serverTime")
+        server = server if isinstance(server, dict) else {}
+        server_time = server_time if isinstance(server_time, dict) else {}
+        # VBR 13 用 ianaTimeZoneId，VBR 12 只有 timeZone
+        iana_tz = server_time.get("ianaTimeZoneId") or server_time.get("timeZone")
+        build = server.get("buildVersion")
+
+        target.api_version = client.api_version
+        if build:
+            target.detected_version = build
+        db.commit()
+
         return {
             "ok": True,
-            "server": server if isinstance(server, dict) else {},
-            "server_time": (server_time or {}).get("serverTime")
-            if isinstance(server_time, dict)
-            else None,
-            "iana_tz": (server_time or {}).get("ianaTimeZoneId")
-            if isinstance(server_time, dict)
-            else None,
+            "server": server,
+            "server_time": server_time.get("serverTime"),
+            "iana_tz": iana_tz,
+            "version": build,
+            "api_version": client.api_version,
             "error": None,
         }
     except AuthError as exc:
         return {"ok": False, "server": {}, "server_time": None, "iana_tz": None,
-                "error": f"认证失败: {exc}"}
+                "version": None, "api_version": None, "error": f"认证失败: {exc}"}
     except VbrError as exc:
         return {"ok": False, "server": {}, "server_time": None, "iana_tz": None,
-                "error": str(exc)}
+                "version": None, "api_version": None, "error": str(exc)}
 
 
 def get_capabilities(db: Session, target: Target, force: bool = False) -> dict:
@@ -127,7 +151,9 @@ def get_capabilities(db: Session, target: Target, force: bool = False) -> dict:
 
     try:
         client = build_client(target)
+        client.ensure_version()
         result = client.available()
+        target.api_version = client.api_version
     except VbrError as exc:
         logger.warning("capability probe failed", extra={"target_id": target.id, "error": str(exc)})
         return cached or {}

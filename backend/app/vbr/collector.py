@@ -12,7 +12,7 @@ from typing import Optional
 
 from app.utils.timeutil import parse_iso, utcnow
 from app.vbr.client import VbrClient
-from app.vbr.endpoints import COLLECT_ENDPOINTS
+from app.vbr.endpoints import collect_endpoints
 from app.vbr.exceptions import AuthError, LicenseRestricted, NotFound, PagingOverflow, VbrError
 from app.vbr.paging import iter_all
 
@@ -36,9 +36,42 @@ class CollectionResult:
         return server.get("buildVersion")
 
 
+def _normalize_proxies(inventory: dict) -> None:
+    """把 VBR 12 的代理配置列表补齐成与 13 相近的结构。
+
+    VBR 12 没有 `/proxies/states`，列表项是嵌套的配置对象，不含在线状态；
+    用受管服务器（hostId 对应）的 status 推断 isOnline，避免界面误显示离线。
+    """
+    proxies = inventory.get("proxies")
+    if not isinstance(proxies, list):
+        return
+    servers = {
+        server.get("id"): server for server in (inventory.get("managedServers") or [])
+    }
+    normalized: list[dict] = []
+    for proxy in proxies:
+        server = proxy.get("server")
+        if not isinstance(server, dict) or "isOnline" in proxy:
+            normalized.append(proxy)
+            continue
+        host_id = server.get("hostId")
+        host = servers.get(host_id) or {}
+        item = dict(proxy)
+        item["hostId"] = host_id
+        item["hostName"] = host.get("name")
+        status = str(host.get("status") or "").lower()
+        if status:
+            item["isOnline"] = status in ("available", "connected")
+        normalized.append(item)
+    inventory["proxies"] = normalized
+
+
 def collect(client: VbrClient) -> CollectionResult:
     """采集巡检所需的全部数据。"""
     result = CollectionResult()
+
+    # ---- 先确定 REST API 版本（VBR 12 / 13 端点不同）----
+    client.ensure_version()
 
     # ---- 先取 VBR 时钟，作为本轮的时间基准 ----
     try:
@@ -58,13 +91,13 @@ def collect(client: VbrClient) -> CollectionResult:
         result.errors.append(f"/api/v1/serverTime: {exc}")
 
     # ---- 采集其余端点 ----
-    for endpoint in COLLECT_ENDPOINTS:
+    for endpoint in collect_endpoints(client.api_version):
         try:
             if endpoint.is_list:
                 result.inventory[endpoint.key] = list(
                     iter_all(
-                        lambda offset, limit, _p=endpoint.path: client.get(
-                            _p, limit=limit, offset=offset
+                        lambda skip, limit, _p=endpoint.path: client.get(
+                            _p, limit=limit, skip=skip
                         )
                     )
                 )
@@ -94,4 +127,5 @@ def collect(client: VbrClient) -> CollectionResult:
             if endpoint.primary:
                 result.degraded = True
 
+    _normalize_proxies(result.inventory)
     return result

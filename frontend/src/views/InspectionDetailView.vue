@@ -13,6 +13,7 @@ import type { Finding, InspectionRunDetail } from '@/api/types'
 import SeverityTag from '@/components/SeverityTag.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import JsonViewer from '@/components/JsonViewer.vue'
+import VersionTag from '@/components/VersionTag.vue'
 import { formatDateTime, formatDuration } from '@/utils/format'
 
 const route = useRoute()
@@ -154,7 +155,8 @@ onMounted(async () => {
           </div>
           <div class="meta-item">
             <span class="meta-label">VBR 版本</span>
-            <span class="vi-mono">{{ run.vbr_build ?? '-' }}</span>
+            <VersionTag :build="run.vbr_build" size="default" />
+            <span class="vi-mono vi-muted">{{ run.vbr_build ?? '-' }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">VBR 服务器时间</span>
